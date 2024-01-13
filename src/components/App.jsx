@@ -1,4 +1,3 @@
-import { Component } from 'react';
 import Searchbar from './Searchbar/Searchbar';
 import Button from './Button/Button';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -7,88 +6,72 @@ import { fetchPictures } from '../api/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Modal from './Modal/Modal';
+import { useState, useEffect } from 'react';
 
-export default class App extends Component {
-  state = {
-    searchInput: '',
-    pictures: [],
-    isLoading: false,
-    error: null,
-    page: 1,
-    buttonIsShown: false,
-    largeImageURL: null,
+export default function App() {
+  const [searchInput, setSearchInput] = useState('');
+  const [pictures, setPictures] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [buttonIsShown, setButtonIsShown] = useState(false);
+  const [largeImageURL, setLargeImageURL] = useState(null);
+
+  const handleFormSubmit = searchInput => {
+    setSearchInput(searchInput);
+    setPictures([]);
+    setIsLoading(true);
+    setError(null);
+    setPage(1);
   };
 
-  handleFormSubmit = searchInput => {
-    this.setState({
-      searchInput,
-      pictures: [],
-      isLoading: true,
-      error: null,
-      page: 1,
-    });
+  const handleClick = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  handleClick = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
-  };
-
-  async componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.searchInput !== this.state.searchInput ||
-      prevState.page !== this.state.page
-    ) {
-      try {
-        const pictures = await fetchPictures(
-          this.state.searchInput,
-          this.state.page
-        );
-
-        this.setState(prevState => ({
-          pictures: [...prevState.pictures, ...pictures.hits],
-          buttonIsShown: this.state.page < Math.ceil(pictures.totalHits / 12),
-        }));
-      } catch (error) {
-        this.setState({ error });
-      } finally {
-        this.setState({ isLoading: false });
-      }
+  useEffect(() => {
+    if (searchInput === '') {
+      return;
     }
-  }
 
-  openModal = largeImageURL => {
-    this.setState({ largeImageURL });
+    const getPictures = async () => {
+      try {
+        const picturesFetched = await fetchPictures(searchInput, page);
+        setPictures(prevState => [...prevState, ...picturesFetched.hits]);
+        setButtonIsShown(page < Math.ceil(picturesFetched.totalHits / 12));
+        console.log(picturesFetched);
+      } catch (error) {
+        setError(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getPictures();
+  }, [searchInput, page]);
+
+  const openModal = largeImageURL => {
+    setLargeImageURL(largeImageURL);
   };
 
-  closeModal = () => {
-    this.setState({ largeImageURL: null });
+  const closeModal = () => {
+    setLargeImageURL(null);
   };
 
-  render() {
-    return (
-      <div className={css.App}>
-        <Searchbar submit={this.handleFormSubmit} />
-        <ImageGallery
-          error={this.state.error}
-          isLoading={this.state.isLoading}
-          pictures={this.state.pictures}
-          onSelect={this.openModal}
-        />
-        {this.state.buttonIsShown && <Button onClick={this.handleClick} />}
-        <ToastContainer
-          position="top-center"
-          autoClose={3000}
-          theme="colored"
-        />
-        {this.state.largeImageURL && (
-          <Modal
-            largeImageURL={this.state.largeImageURL}
-            onClose={this.closeModal}
-          />
-        )}
-      </div>
-    );
-  }
+  return (
+    <div className={css.App}>
+      <Searchbar submit={handleFormSubmit} />
+      <ImageGallery
+        error={error}
+        isLoading={isLoading}
+        pictures={pictures}
+        onSelect={openModal}
+      />
+      {buttonIsShown && <Button onClick={handleClick} />}
+      <ToastContainer position="top-center" autoClose={3000} theme="colored" />
+      {largeImageURL && (
+        <Modal largeImageURL={largeImageURL} onClose={closeModal} />
+      )}
+    </div>
+  );
 }
